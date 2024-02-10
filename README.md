@@ -17,7 +17,8 @@ Note: script is meant to be run once. Running again against the same data will r
 The issues will need to be attached to a GitHub Project. You will need to set up the Project prior to importing.
 
 * Set a workflow on the Project so Issues from your repo will be automatically added
-* Make sure all necessary fields are available (Estimated Remaining, Time Spent, etc). This should be the case if you created the Project from the SFUP Template
+* Make sure all necessary fields are available (Estimated Remaining, Time Spent, etc). This should be the case if you created the Project from the SFUP Template. These field names are used in fields.py
+* Default values can be set in fields.py
 
 ## 3. Run the import
 

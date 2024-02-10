@@ -1,10 +1,19 @@
 import requests
 from env import accesstoken
 
-headers = {
+HEADERS = {
     "Authorization": f"Bearer {accesstoken}"
 }
-base_url = "https://api.github.com/graphql"
+BASE_URL = "https://api.github.com/graphql"
+
+def error_handling(response, e):
+    # provide some details and a breakpoint for debugging
+    print("There was an error!")
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+    print(response.text)
+    print(e)
+    breakpoint()
 
 def get_repo_id(owner, name):
     # return the repository ID, it is needed for creating issues
@@ -15,15 +24,14 @@ def get_repo_id(owner, name):
             }}
         }}
         """
-    response = requests.post(base_url, json={"query": query}, headers=headers)
+    response = requests.post(BASE_URL, json={"query": query}, headers=HEADERS)
     try:
         return response.json()['data']['repository']['id']
-    except KeyError:
-        print("There was an error!")
-        breakpoint()
+    except Exception as e:
+        error_handling(response, e)
 
 def create_issue(repo_id, title):
-    # create an issue in the repository
+    # create an issue in the repository, return the Issue data
     query = f"""
         mutation {{
             createIssue(
@@ -42,21 +50,20 @@ def create_issue(repo_id, title):
             }}
         }}
     """
-    response = requests.post(base_url, json={"query": query}, headers=headers)
+    response = requests.post(BASE_URL, json={"query": query}, headers=HEADERS)
     try:
-        return response.json()['data']['createIssue']['issue']['id']
-    except KeyError:
-        print("There was an error!")
-        breakpoint()
+        return response.json()['data']['createIssue']['issue']
+        # issue contains id, number, title, bodyText
+    except Exception as e:
+        error_handling(response, e)
 
-def get_issue_metadata(project, issue_tracker, issue_id):
-    # take the issue information, builds a query to return:
-    # - IDs of all projects the issue is in
-    # - Field information so we can populate things like Time Remaining and Component
+def get_issue_project(project, issue_tracker, issue_number, tries=0):
+    # take the issue information, return the first project ID
+    # if the issue is not in a project, return None
     query = f"""
         query {{
             repository(owner:"{project}", name:"{issue_tracker}") {{
-                issue(id:{issue_id}) {{
+                issue(number:{issue_number}) {{
                     id
                     projectItems(first:5) {{
                         nodes {{
@@ -64,18 +71,54 @@ def get_issue_metadata(project, issue_tracker, issue_id):
                             project {{
                                 id
                             }}
-                            fieldValues(last: 13) {{
-                                nodes {{
-                                    ... on ProjectV2ItemFieldNumberValue {{
+                        }}
+                    }}
+                }}
+            }}
+        }}
+        """
+    response = requests.post(BASE_URL, json={"query": query}, headers=HEADERS)
+    response_data = response.json()
+    try:
+        # query until we get project data, becasue it may not be there yet
+        if not response_data['data']['repository']['issue']['projectItems']['nodes']:
+            tries += 1
+            if tries > 10:
+                print(f"Issue #{issue_number} is not in a project yet, it will need to be manually updated")
+                return None
+            return get_issue_project(project, issue_tracker, issue_number, tries)
+    except Exception as e:
+        error_handling(response, e)
+    return response_data['data']['repository']['issue']['projectItems']['nodes'][0]
+
+def get_project_fields(project_id):
+    # return the fields for the project
+    query = f"""
+        query {{
+            node(id: "{project_id}") {{
+                ... on ProjectV2 {{
+                    fields(first: 20) {{
+                        nodes {{
+                            ... on ProjectV2Field {{
+                                id
+                                name
+                            }}
+                            ... on ProjectV2IterationField {{
+                                id
+                                name
+                                configuration {{
+                                    iterations {{
+                                        startDate
                                         id
-                                        number
-                                        field {{
-                                            ... on ProjectV2FieldCommon {{
-                                                id
-                                                name
-                                            }}
-                                        }}
                                     }}
+                                }}
+                            }}
+                            ... on ProjectV2SingleSelectField {{
+                                id
+                                name
+                                options {{
+                                    id
+                                    name
                                 }}
                             }}
                         }}
@@ -84,10 +127,69 @@ def get_issue_metadata(project, issue_tracker, issue_id):
             }}
         }}
         """
-    response = requests.post(base_url, json={"query": query}, headers=headers)
-    response_data = response.json()
+    response = requests.post(BASE_URL, json={"query": query}, headers=HEADERS)
     try:
-        return response_data['data']['repository']['issue']
-    except KeyError:
-        print("There was an error!")
-        breakpoint()
+        return response.json()['data']['node']['fields']['nodes']
+    except Exception as e:
+        error_handling(response, e)
+
+def update_project_fields(project_id, issue_id, fields):
+    # Update the project fields
+    # Component and Effort Planned from the CSV
+    # Other defaults as set in fields.py
+    # field_graphsqls = ""
+    for field in fields:
+        if fields[field]['type'] == 'Number':
+            if 'value' not in fields[field]:
+                continue
+            mutation_query = f"""
+                mutation {{
+                    updateProjectV2ItemFieldValue(
+                        input: {{
+                            projectId: "{project_id}"
+                            itemId: "{issue_id}"
+                            fieldId: "{fields[field]['id']}"
+                            value: {{
+                                number: {fields[field]['value']}
+                            }}
+                        }}
+                    )
+                    {{
+                        projectV2Item {{
+                            id
+                        }}
+                    }}
+                }}
+            """
+            response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
+            if response.status_code != 200:
+                print(f"Error: {response.status_code}")
+            elif 'errors' in response.json():
+                print(response.json()['errors'])
+        elif fields[field]['type'] == 'Single Select':
+            if 'default_id' not in fields[field]:
+                continue
+            mutation_query = f"""
+                mutation {{
+                    updateProjectV2ItemFieldValue(
+                        input: {{
+                            projectId: "{project_id}"
+                            itemId: "{issue_id}"
+                            fieldId: "{fields[field]['id']}"
+                            value: {{
+                                singleSelectOptionId: "{fields[field]['default_id']}"
+                            }}
+                        }}
+                    )
+                    {{
+                        projectV2Item {{
+                            id
+                        }}
+                    }}
+                }}
+            """
+            response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
+            if response.status_code != 200:
+                print(f"Error: {response.status_code}")
+            elif 'errors' in response.json():
+                print(response.json()['errors'])
