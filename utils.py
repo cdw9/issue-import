@@ -133,13 +133,14 @@ def get_project_fields(project_id):
     except Exception as e:
         error_handling(response, e)
 
-def update_project_fields(project_id, issue_id, fields):
+def update_project_fields(project_id, issue_id, fields, row):
     # Update the project fields
     # Component and Effort Planned from the CSV
     # Other defaults as set in fields.py
-    # field_graphsqls = ""
     for field in fields:
         if fields[field]['type'] == 'Number':
+            # only two number fields (Complexity and Effort Planned) get the same value
+            fields[field]['value'] = list(row.values())[4]
             if 'value' not in fields[field]:
                 continue
             mutation_query = f"""
@@ -166,9 +167,19 @@ def update_project_fields(project_id, issue_id, fields):
                 print(f"Error: {response.status_code}")
             elif 'errors' in response.json():
                 print(response.json()['errors'])
+
         elif fields[field]['type'] == 'Single Select':
-            if 'default_id' not in fields[field]:
+            field_value = ""
+            if field == 'Component':
+                field_value = fields[field]['options'][row['Component']]
+            elif field == 'Job Code':
+                if len(fields[field]['options']) == 1:
+                    field_value = list(fields[field]['options'].values())[0]
+            if 'default_id' in fields[field]:
+                field_value = fields[field]['default_id']
+            if not field_value:
                 continue
+
             mutation_query = f"""
                 mutation {{
                     updateProjectV2ItemFieldValue(
@@ -177,7 +188,7 @@ def update_project_fields(project_id, issue_id, fields):
                             itemId: "{issue_id}"
                             fieldId: "{fields[field]['id']}"
                             value: {{
-                                singleSelectOptionId: "{fields[field]['default_id']}"
+                                singleSelectOptionId: "{field_value}"
                             }}
                         }}
                     )
