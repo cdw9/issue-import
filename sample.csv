@@ -1,0 +1,7 @@
+Component,User Story,Requirements,Tasks,Complexity,Complexity (Optional),Questions/Assumptions
+01-Communication,"As the PROJECT STAKEHOLDER, I need to be kept in the know and weigh in on key decisions",The engineering team will meet daily and a weekly client meeting will be scheduled weekly to demo and discuss progress.,Schedule and host meetings,8,7,
+02-Setup,"As a DEVOPS ENGINEER, I need to be able to manage infrastructure easily",Infrastrucure should be managed through code,Provisioning infrastructure,4,,
+03-Authentication,"As a USER, I need to sign up",The app needs to allow users to sign up,Create sign-up page,4,,
+06-Lessons,"As a USER, I need to view a lesson",The app needs to show details about a lesson,Create a page to show the lesson details,2,,
+06-Lessons,"As a TEACHER, I need to start a lesson video session",The app needs to notify the student the lesson has started,"Provide In-App notifications to the student that the lesson has started, provide link to join",2,,
+10-Hosting,"As a DEVELOPER, I want to be able to access a Production environment in the Cloud",Production should be hosted on AWS,Hosting costs,6,,
