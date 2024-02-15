@@ -140,8 +140,10 @@ def update_project_fields(project_id, issue_id, fields, row):
     for field in fields:
         if fields[field]['type'] == 'Number':
             # only two number fields (Complexity and Effort Planned) get the same value
-            fields[field]['value'] = list(row.values())[4]
-            if 'value' not in fields[field]:
+            try:
+                fields[field]['value'] = float(list(row.values())[4])
+            except Exception as e:
+                # might be a key error, or the value isn't a number
                 continue
             mutation_query = f"""
                 mutation {{
@@ -163,10 +165,8 @@ def update_project_fields(project_id, issue_id, fields, row):
                 }}
             """
             response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
-            if response.status_code != 200:
-                print(f"Error: {response.status_code}")
-            elif 'errors' in response.json():
-                print(response.json()['errors'])
+            if response.status_code != 200 or 'errors' in response.json():
+                error_handling(response, '')
 
         elif fields[field]['type'] == 'Single Select':
             field_value = ""
@@ -200,7 +200,5 @@ def update_project_fields(project_id, issue_id, fields, row):
                 }}
             """
             response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
-            if response.status_code != 200:
-                print(f"Error: {response.status_code}")
-            elif 'errors' in response.json():
-                print(response.json()['errors'])
+            if response.status_code != 200 or 'errors' in response.json():
+                error_handling(response, '')
