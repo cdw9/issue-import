@@ -27,8 +27,7 @@ project_details = {}
 for issue in issues:
     issue['gh_data'] = utils.create_issue(repo_id, issue['Tasks'])
 
-    if not project_details:
-        project_details['project'] = utils.get_issue_project(project, issue_tracker, issue['gh_data']['number'])
+    project_details['project'] = utils.get_issue_project(project, issue_tracker, issue['gh_data']['number'])
     if not project_details.get('project'):
         print(f"Did not get the project details for #{issue['gh_data']['number']}")
         breakpoint()
@@ -38,10 +37,10 @@ for issue in issues:
     project_node_id = project_details['project']['id']
 
     if 'fields' not in project_details:
-        project_details['fields'] = utils.get_project_fields(project_id)
-    fields = reconcile_fields(project_details['fields'])
+        fields = utils.get_project_fields(project_id)
+        project_details['fields'] = reconcile_fields(fields)
 
-    utils.update_project_fields(project_id, project_node_id, fields, issue)
+    utils.update_project_fields(project_id, project_node_id, project_details['fields'], issue)
     print(f"Created issue #{issue['gh_data']['number']}")
 
 # TODO: create the User Stories and Requirements
