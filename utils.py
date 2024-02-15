@@ -202,3 +202,33 @@ def update_project_fields(project_id, issue_id, fields, row):
             response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
             if response.status_code != 200 or 'errors' in response.json():
                 error_handling(response, '')
+
+        elif fields[field]['type'] == 'Text':
+            field_value = ""
+            if field == 'User Story':
+                field_value = row['User Story']
+            if not field_value:
+                continue
+
+            mutation_query = f"""
+                mutation {{
+                    updateProjectV2ItemFieldValue(
+                        input: {{
+                            projectId: "{project_id}"
+                            itemId: "{issue_id}"
+                            fieldId: "{fields[field]['id']}"
+                            value: {{
+                                text: "{field_value}"
+                            }}
+                        }}
+                    )
+                    {{
+                        projectV2Item {{
+                            id
+                        }}
+                    }}
+                }}
+            """
+            response = requests.post(BASE_URL, json={"query": mutation_query}, headers=HEADERS)
+            if response.status_code != 200 or 'errors' in response.json():
+                error_handling(response, '')

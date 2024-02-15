@@ -29,6 +29,10 @@ FIELDS = {
         'type': 'Number',
         'default': '',  # leave this blank, get value from CSV
     },
+    'User Story': {
+        'type': 'Text',
+        'default': '',  # leave this blank, get value from CSV
+    },
 }
 
 def reconcile_fields(fields):
